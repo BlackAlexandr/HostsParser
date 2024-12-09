@@ -29,16 +29,13 @@ namespace HostsParser
                 // Записываем статистику обработки файлов в файл "statistics.txt".
                 fileProcessor.WriteStatistics("statistics.txt");
 
-                // Создаем экземпляр RangeMerger для объединения диапазонов.
+                // Рабоатем c диапазонами для каждого хоста и получаем результаты.
                 var rangeMerger = new RangeMerger();
-                // Объединяем диапазоны для каждого хоста и получаем результаты.
                 var results = rangeMerger.ProcessHosts(includesByHost, excludesByHost);
 
-                // Создаем экземпляр ReportGenerator для генерации отчета.
-                var reportGenerator = new ResultGenerator();
-
-                // Генерируем отчет и записываем его в файл "output.txt".
-                reportGenerator.GenerateResult(results, "output.txt");
+                // Генерируем выходной файл.
+                var resultGenerator = new ResultGenerator();
+                resultGenerator.GenerateResult(results, "output.txt");
             }
             catch (Exception ex)
             {
