@@ -19,8 +19,9 @@ namespace HostsParser
         // ConcurrentDictionary для хранения статистики обработки файлов.
         private ConcurrentDictionary<string, (int AggregatedRanges, int SkippedLines)> fileStatistics = new ConcurrentDictionary<string, (int AggregatedRanges, int SkippedLines)>();
 
-        // Метод ProcessFiles обрабатывает файлы параллельно с помощью Parallel.ForEach.
-        public void ProcessFiles(string[] files, ConcurrentDictionary<string, List<(int Start, int End)>> includesByHost, ConcurrentDictionary<string, List<(int Start, int End)>> excludesByHost)
+        // Метод ProcessFiles обрабатывает файлы параллельно.
+        public void ProcessFiles(string[] files, ConcurrentDictionary<string, List<(int Start, int End)>> includesByHost, 
+            ConcurrentDictionary<string, List<(int Start, int End)>> excludesByHost)
         {
             // Обрабатываем каждый файл в отдельном потоке.
             Parallel.ForEach(files, new ParallelOptions { MaxDegreeOfParallelism = 16 }, file =>
@@ -43,8 +44,9 @@ namespace HostsParser
             });
         }
 
-        // Метод ProcessFile обрабатывает один файл и извлекает из него диапазоны.
-        private (int AggregatedRanges, int SkippedLines) ProcessFile(string file, ConcurrentDictionary<string, List<(int Start, int End)>> includesByHost, ConcurrentDictionary<string, List<(int Start, int End)>> excludesByHost)
+        // Метод ProcessFile обрабатывает файл и извлекает из него диапазоны.
+        private (int AggregatedRanges, int SkippedLines) ProcessFile(string file, ConcurrentDictionary<string, List<(int Start, int End)>> includesByHost, 
+            ConcurrentDictionary<string, List<(int Start, int End)>> excludesByHost)
         {
             int aggregatedRanges = 0;
             int skippedLines = 0;
