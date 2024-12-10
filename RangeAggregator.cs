@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 
+
 namespace HostsParser
 {
     // Класс RangeAggregator отвечает за запуск всего процесса агрегации диапазонов.
@@ -13,7 +14,7 @@ namespace HostsParser
         {
             try
             {
-                //Мысли по оптимизации. Можно будет сделать хранение диапазнов в sqlite и там поработать с диапазонами
+                // Мысли по оптимизации. Можно будет сделать хранение диапазонов в sqlite и там поработать с диапазонами
 
                 // Создаем два ConcurrentDictionary для хранения включенных и исключенных диапазонов по хостам.
                 var includesByHost = new ConcurrentDictionary<string, List<(int Start, int End)>>();
@@ -29,17 +30,19 @@ namespace HostsParser
                 // Записываем статистику обработки файлов в файл "statistics.txt".
                 fileProcessor.WriteStatistics("statistics.txt");
 
-                // Рабоатем c диапазонами для каждого хоста и получаем результаты.
+                Console.WriteLine($"includesByHost: {includesByHost.Count}. excludesByHost: {excludesByHost.Count}");
+
+                // Объединяем диапазоны для каждого хоста и получаем результаты.
                 var rangeMerger = new RangeMerger();
                 var results = rangeMerger.ProcessHosts(includesByHost, excludesByHost);
 
-                // Генерируем выходной файл.
-                var resultGenerator = new ResultGenerator();
+                // Генерируем отчет и записываем его в файл "output.txt".
+                var resultGenerator = new ResultGenerator();               
                 resultGenerator.GenerateResult(results, "output.txt");
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Ошибка работы утилиты в  директории: {directory}. Подробности: {ex.Message}");
+                Console.WriteLine($"Ошибка работы утилиты в директории: {directory}. Подробности: {ex.Message}");
             }
         }
     }

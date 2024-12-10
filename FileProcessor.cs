@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 
 namespace HostsParser
 {
+
     // Класс FileProcessor отвечает за обработку файлов и извлечение из них диапазонов.
     public class FileProcessor
     {
@@ -19,9 +20,8 @@ namespace HostsParser
         // ConcurrentDictionary для хранения статистики обработки файлов.
         private ConcurrentDictionary<string, (int AggregatedRanges, int SkippedLines)> fileStatistics = new ConcurrentDictionary<string, (int AggregatedRanges, int SkippedLines)>();
 
-        // Метод ProcessFiles обрабатывает файлы параллельно.
-        public void ProcessFiles(string[] files, ConcurrentDictionary<string, List<(int Start, int End)>> includesByHost, 
-            ConcurrentDictionary<string, List<(int Start, int End)>> excludesByHost)
+        // Метод ProcessFiles обрабатывает файлы параллельно с помощью Parallel.ForEach.
+        public void ProcessFiles(string[] files, ConcurrentDictionary<string, List<(int Start, int End)>> includesByHost, ConcurrentDictionary<string, List<(int Start, int End)>> excludesByHost)
         {
             // Обрабатываем каждый файл в отдельном потоке.
             Parallel.ForEach(files, new ParallelOptions { MaxDegreeOfParallelism = 16 }, file =>
@@ -29,8 +29,38 @@ namespace HostsParser
                 var startTime = DateTime.Now;
                 Console.WriteLine($"Начинается обработка файла: {file} в {startTime:T}");
 
+                var (aggregatedRanges, skippedLines, includesByHostFile, excludesByHostFile) = ProcessFile(file);
 
-                var stats = ProcessFile(file, includesByHost, excludesByHost);
+                // Объединяем результаты из каждого файла.
+                foreach (var host in includesByHostFile.Keys)
+                {
+                    if (!includesByHost.ContainsKey(host))
+                    {
+                        includesByHost.TryAdd(host, includesByHostFile[host]);
+                    }
+                    else
+                    {
+                        lock (includesByHost)
+                        {
+                            includesByHost[host].AddRange(includesByHostFile[host]);
+                        }
+                    }
+                }
+
+                foreach (var host in excludesByHostFile.Keys)
+                {
+                    if (!excludesByHost.ContainsKey(host))
+                    {
+                        excludesByHost.TryAdd(host, excludesByHostFile[host]);
+                    }
+                    else
+                    {
+                        lock (excludesByHost)
+                        {
+                            excludesByHost[host].AddRange(excludesByHostFile[host]);
+                        }
+                    }
+                }
 
                 // Блокируем консоль для вывода статистики.
                 lock (Console.Out)
@@ -40,16 +70,18 @@ namespace HostsParser
                 }
 
                 // Добавляем статистику.
-                fileStatistics[file] = stats;
+                fileStatistics[file] = (aggregatedRanges, skippedLines);
             });
         }
 
-        // Метод ProcessFile обрабатывает файл и извлекает из него диапазоны.
-        private (int AggregatedRanges, int SkippedLines) ProcessFile(string file, ConcurrentDictionary<string, List<(int Start, int End)>> includesByHost, 
-            ConcurrentDictionary<string, List<(int Start, int End)>> excludesByHost)
+        // Метод ProcessFile обрабатывает один файл и извлекает из него диапазоны.
+        private (int AggregatedRanges, int SkippedLines, Dictionary<string, List<(int Start, int End)>> includesByHost, Dictionary<string, List<(int Start, int End)>> excludesByHost) ProcessFile(string file)
         {
             int aggregatedRanges = 0;
             int skippedLines = 0;
+
+            var includesByHost = new Dictionary<string, List<(int Start, int End)>>();
+            var excludesByHost = new Dictionary<string, List<(int Start, int End)>>();
 
             try
             {
@@ -76,16 +108,30 @@ namespace HostsParser
                                 if (rangeValues.Length == 2)
                                 {
                                     var range = (Start: rangeValues[0], End: rangeValues[1]);
-                                    // Добавляем диапазон в соответствующий ConcurrentDictionary в зависимости от типа (включить или исключить).
+                                    // Добавляем диапазон в соответствующий словарь в зависимости от типа (включить или исключить).
                                     foreach (var host in hosts)
                                     {
                                         if (type == "include")
                                         {
-                                            includesByHost.AddOrUpdate(host, _ => new List<(int Start, int End)> { range }, (_, list) => { list.Add(range); return list; });
+                                            if (!includesByHost.ContainsKey(host))
+                                            {
+                                                includesByHost.Add(host, new List<(int Start, int End)> { range });
+                                            }
+                                            else
+                                            {
+                                                includesByHost[host].Add(range);
+                                            }
                                         }
                                         else if (type == "exclude")
                                         {
-                                            excludesByHost.AddOrUpdate(host, _ => new List<(int Start, int End)> { range }, (_, list) => { list.Add(range); return list; });
+                                            if (!excludesByHost.ContainsKey(host))
+                                            {
+                                                excludesByHost.Add(host, new List<(int Start, int End)> { range });
+                                            }
+                                            else
+                                            {
+                                                excludesByHost[host].Add(range);
+                                            }
                                         }
                                     }
                                 }
@@ -117,7 +163,7 @@ namespace HostsParser
                 Console.WriteLine($"Ошибка обработки файла: {file}. Подробности: {ex.Message}");
             }
 
-            return (aggregatedRanges, skippedLines);
+            return (aggregatedRanges, skippedLines, includesByHost, excludesByHost);
         }
 
         // Метод WriteStatistics записывает статистику обработки данных в файл.
