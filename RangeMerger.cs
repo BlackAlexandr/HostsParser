@@ -13,20 +13,18 @@ namespace HostsParser
         public ConcurrentDictionary<string, string> ProcessHosts(ConcurrentDictionary<string, List<Range>> includesByHost, ConcurrentDictionary<string, List<Range>> excludesByHost)
         {
             var results = new ConcurrentDictionary<string, string>();
-
-            // Сортируем хосты
             var sortedHosts = includesByHost.Keys.OrderBy(h => h, new HostComparer()).ToList();
 
-            // Обрабатываем каждого хоста параллельно
+            // Обрабатываем каждого хоста параллельно.
             Parallel.ForEach(sortedHosts, new ParallelOptions { MaxDegreeOfParallelism = 16 }, host =>
             {
                 var includes = includesByHost[host];
                 var excludes = excludesByHost.ContainsKey(host) ? excludesByHost[host] : new List<Range>();
 
-                // Объединяем включенные диапазоны с помощью метода MergeRanges.
+                // Объединяем включенные диапазоны.
                 var resultRanges = MergeRanges(includes);
 
-                // Убираем исключенные диапазоны из результата с помощью метода SubtractRange.
+                // Убираем исключенные диапазоны из результата.
                 foreach (var exclude in excludes)
                 {
                     resultRanges = SubtractRange(resultRanges, exclude);

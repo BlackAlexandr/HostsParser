@@ -71,13 +71,13 @@ namespace HostsParser
         }
 
         // Метод ParseFile обрабатывает один файл и извлекает из него диапазоны.
-        private (int AggregatedRanges, int SkippedLines, Dictionary<string, List<Range>> includesByHost, Dictionary<string, List<Range>> excludesByHost) ParseFile(string file)
+        private (int AggregatedRanges, int SkippedLines, ConcurrentDictionary<string, List<Range>> includesByHost, ConcurrentDictionary<string, List<Range>> excludesByHost) ParseFile(string file)
         {
             int aggregatedRanges = 0;
             int skippedLines = 0;
 
-            var includesByHost = new Dictionary<string, List<Range>>();
-            var excludesByHost = new Dictionary<string, List<Range>>();
+            var includesByHost = new ConcurrentDictionary<string, List<Range>>();
+            var excludesByHost = new ConcurrentDictionary<string, List<Range>>();
 
             try
             {
@@ -107,31 +107,33 @@ namespace HostsParser
                                     // Добавляем диапазон в соответствующий словарь в зависимости от типа (включить или исключить).
                                     foreach (var host in hosts)
                                     {
-                                        if (type == "include")
+                                        if (type.Equals("include", StringComparison.OrdinalIgnoreCase))
                                         {
-                                            if (!includesByHost.ContainsKey(host))
-                                            {
-                                                includesByHost.Add(host, new List<Range> { range });
-                                            }
-                                            else
-                                            {
-                                                includesByHost[host].Add(range);
-                                            }
+                                            includesByHost.AddOrUpdate(host,
+                                                new List<Range> { range },
+                                                (key, existingList) =>
+                                                {
+                                                    existingList.Add(range);
+                                                    return existingList;
+                                                });
                                         }
-                                        else if (type == "exclude")
+                                        else if (type.Equals("exclude", StringComparison.OrdinalIgnoreCase))
                                         {
-                                            if (!excludesByHost.ContainsKey(host))
-                                            {
-                                                excludesByHost.Add(host, new List<Range> { range });
-                                            }
-                                            else
-                                            {
-                                                excludesByHost[host].Add(range);
-                                            }
+                                            excludesByHost.AddOrUpdate(host,
+                                                new List<Range> { range },
+                                                (key, existingList) =>
+                                                {
+                                                    existingList.Add(range);
+                                                    return existingList;
+                                                });
                                         }
                                     }
+                                    aggregatedRanges++; // Увеличиваем счетчик обработанных данных.
                                 }
-                                aggregatedRanges++; // Увеличиваем счетчик обработанных данных.
+                                else
+                                {
+                                    skippedLines++; // Увеличиваем счетчик пропущенных строк.
+                                }
                             }
                             else
                             {
@@ -161,6 +163,7 @@ namespace HostsParser
 
             return (aggregatedRanges, skippedLines, includesByHost, excludesByHost);
         }
+
 
         // Метод WriteStatistics записывает статистику обработки данных в файл.
         public void WriteStatistics(string outputFile)

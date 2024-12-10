@@ -25,14 +25,14 @@ namespace HostsParser
                 var fileParser = new FileParser();
                 fileParser.ParseFiles(files, includesByHost, excludesByHost);
 
-                // Записываем статистику обработки файлов в файл "statistics.txt".
+                // Записываем статистику обработки файлов.
                 fileParser.WriteStatistics("statistics.txt");
 
                 // Объединяем диапазоны для каждого хоста и получаем результаты.
                 var rangeMerger = new RangeMerger();
                 var results = rangeMerger.ProcessHosts(includesByHost, excludesByHost);
 
-                // Генерируем отчет и записываем его в файл "output.txt".
+                // Генерируем отчетный файл.
                 var resultGenerator = new ResultGenerator();               
                 resultGenerator.GenerateResult(results, "output.txt");
             }
