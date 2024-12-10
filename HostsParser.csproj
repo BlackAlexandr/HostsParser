@@ -54,6 +54,7 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="RangeAggregator.cs" />
     <Compile Include="RangeMerger.cs" />
+    <Compile Include="RangeStruct.cs" />
     <Compile Include="ResultGenerator.cs" />
   </ItemGroup>
   <ItemGroup>

@@ -10,7 +10,7 @@ namespace HostsParser
     public class RangeMerger
     {
         // Метод ProcessHosts обрабатывает каждого хоста и объединяет его диапазоны.
-        public ConcurrentDictionary<string, string> ProcessHosts(ConcurrentDictionary<string, List<(int Start, int End)>> includesByHost, ConcurrentDictionary<string, List<(int Start, int End)>> excludesByHost)
+        public ConcurrentDictionary<string, string> ProcessHosts(ConcurrentDictionary<string, List<Range>> includesByHost, ConcurrentDictionary<string, List<Range>> excludesByHost)
         {
             var results = new ConcurrentDictionary<string, string>();
 
@@ -21,7 +21,7 @@ namespace HostsParser
             Parallel.ForEach(sortedHosts, new ParallelOptions { MaxDegreeOfParallelism = 16 }, host =>
             {
                 var includes = includesByHost[host];
-                var excludes = excludesByHost.ContainsKey(host) ? excludesByHost[host] : new List<(int Start, int End)>();
+                var excludes = excludesByHost.ContainsKey(host) ? excludesByHost[host] : new List<Range>();
 
                 // Объединяем включенные диапазоны с помощью метода MergeRanges.
                 var resultRanges = MergeRanges(includes);
@@ -40,13 +40,13 @@ namespace HostsParser
         }
 
         // Метод MergeRanges объединяет список диапазонов в один список с объединенными диапазонами.
-        private List<(int Start, int End)> MergeRanges(List<(int Start, int End)> ranges)
+        private List<Range> MergeRanges(List<Range> ranges)
         {
-            if (ranges.Count == 0) return new List<(int Start, int End)>();
+            if (ranges.Count == 0) return new List<Range>();
 
             // Сортируем диапазоны по возрастанию начала диапазона.
             var sortedRanges = ranges.OrderBy(r => r.Start).ToList();
-            var mergedRanges = new List<(int Start, int End)>();
+            var mergedRanges = new List<Range>();
 
             var currentRange = sortedRanges[0];
 
@@ -69,11 +69,11 @@ namespace HostsParser
         }
 
         // Метод SubtractRange удаляет один диапазон из списка диапазонов.
-        private List<(int Start, int End)> SubtractRange(List<(int Start, int End)> ranges, (int Start, int End) exclude)
+        private List<Range> SubtractRange(List<Range> ranges, Range exclude)
         {
-            if (ranges.Count == 0) return new List<(int Start, int End)>();
+            if (ranges.Count == 0) return new List<Range>();
 
-            var result = new List<(int Start, int End)>();
+            var result = new List<Range>();
 
             // Добавляем в результат те части диапазонов, которые не перекрываются с исключаемым диапазоном.
             foreach (var range in ranges)
@@ -86,11 +86,11 @@ namespace HostsParser
                 {
                     // Если есть часть слева от исключаемого диапазона, добавляем ее в результат.
                     if (exclude.Start > range.Start)
-                        result.Add((range.Start, exclude.Start - 1));
+                        result.Add(new Range(range.Start, exclude.Start - 1));
 
                     // Если есть часть справа от исключаемого диапазона, добавляем ее в результат.
                     if (exclude.End < range.End)
-                        result.Add((exclude.End + 1, range.End));
+                        result.Add(new Range(exclude.End + 1, range.End));
                 }
             }
 

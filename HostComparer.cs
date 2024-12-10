@@ -4,7 +4,6 @@ using System.Text.RegularExpressions;
 
 namespace HostsParser
 {
-    // Класс для сравнения названийЖ host1 host2...
     // Делаем правильную сортрировку host1 host2... host10.
     public class HostComparer : IComparer<string>
     {

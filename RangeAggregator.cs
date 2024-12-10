@@ -14,23 +14,19 @@ namespace HostsParser
         {
             try
             {
-                // Мысли по оптимизации. Можно будет сделать хранение диапазонов в sqlite и там поработать с диапазонами
-
                 // Создаем два ConcurrentDictionary для хранения включенных и исключенных диапазонов по хостам.
-                var includesByHost = new ConcurrentDictionary<string, List<(int Start, int End)>>();
-                var excludesByHost = new ConcurrentDictionary<string, List<(int Start, int End)>>();
+                var includesByHost = new ConcurrentDictionary<string, List<Range>>();
+                var excludesByHost = new ConcurrentDictionary<string, List<Range>>();
 
                 // Получаем список файлов в директории.
                 var files = Directory.GetFiles(directory);
 
                 // Обрабатываем файлы.
-                var fileProcessor = new FileProcessor();
-                fileProcessor.ProcessFiles(files, includesByHost, excludesByHost);
+                var fileParser = new FileParser();
+                fileParser.ParseFiles(files, includesByHost, excludesByHost);
 
                 // Записываем статистику обработки файлов в файл "statistics.txt".
-                fileProcessor.WriteStatistics("statistics.txt");
-
-                Console.WriteLine($"includesByHost: {includesByHost.Count}. excludesByHost: {excludesByHost.Count}");
+                fileParser.WriteStatistics("statistics.txt");
 
                 // Объединяем диапазоны для каждого хоста и получаем результаты.
                 var rangeMerger = new RangeMerger();
