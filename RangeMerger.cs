@@ -1,4 +1,5 @@
-﻿using System;
+﻿using HostsParser;
+using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
@@ -9,91 +10,104 @@ namespace HostsParser
     // Класс RangeMerger отвечает за объединение диапазонов для каждого хоста.
     public class RangeMerger
     {
-        // Метод ProcessHosts обрабатывает каждого хоста и объединяет его диапазоны.
+        // Метод обрабатывает каждого хоста и объединяет его диапазоны.
         public ConcurrentDictionary<string, string> ProcessHosts(ConcurrentDictionary<string, List<Range>> includesByHost, ConcurrentDictionary<string, List<Range>> excludesByHost)
         {
             var results = new ConcurrentDictionary<string, string>();
-            var sortedHosts = includesByHost.Keys.OrderBy(h => h, new HostComparer()).ToList();
+            var sortedHosts = includesByHost.Keys;
 
-            // Обрабатываем каждого хоста параллельно.
             Parallel.ForEach(sortedHosts, new ParallelOptions { MaxDegreeOfParallelism = 16 }, host =>
             {
-                var includes = includesByHost[host];
-                var excludes = excludesByHost.ContainsKey(host) ? excludesByHost[host] : new List<Range>();
-
                 // Объединяем включенные диапазоны.
-                var resultRanges = MergeRanges(includes);
+                var resultIntervals = MergeRanges(includesByHost[host]);
 
-                // Убираем исключенные диапазоны из результата.
-                foreach (var exclude in excludes)
+                // Убираем исключенные диапазоны из результата.      
+                if (excludesByHost.TryGetValue(host, out var excludes))
                 {
-                    resultRanges = SubtractRange(resultRanges, exclude);
+                    foreach (var exclude in MergeRanges(excludes))
+                    {
+                        resultIntervals = SubtractRanges(resultIntervals, exclude);
+                    }
                 }
 
-                // Записываем результат
-                results[host] = $"{host}: {string.Join(", ", resultRanges.Select(r => $"[{r.Start},{r.End}]"))}";
+                // Записываем результат.
+                results[host] = $"{host}: {string.Join(", ", resultIntervals.Select(i => $"[{i.Start},{i.End}]"))}";
             });
 
             return results;
         }
 
-        // Метод MergeRanges объединяет список диапазонов в один список с объединенными диапазонами.
-        private List<Range> MergeRanges(List<Range> ranges)
+        // Метод объединяет список диапазонов в один список с объединенными диапазонами.
+        public static List<Range> MergeRanges(List<Range> ranges)
         {
-            if (ranges.Count == 0) return new List<Range>();
+            // Сортируем диапазоны.
+            ranges.Sort((a, b) => a.Start.CompareTo(b.Start));
 
-            // Сортируем диапазоны по возрастанию начала диапазона.
-            var sortedRanges = ranges.OrderBy(r => r.Start).ToList();
-            var mergedRanges = new List<Range>();
+            // Отслеживает конец объединенных диапазонов.
+            int mergedIndex = 0;
 
-            var currentRange = sortedRanges[0];
-
-            // Объединяем диапазоны, если они перекрываются.
-            foreach (var range in sortedRanges.Skip(1))
+            for (int i = 1; i < ranges.Count; i++)
             {
-                if (range.Start <= currentRange.End + 1)
+                var currentRange = ranges[mergedIndex];
+                var nextRange = ranges[i];
+
+                // Перекрывающиеся или соприкасающиеся диапазоны.
+                if (nextRange.Start <= currentRange.End)
                 {
-                    currentRange.End = Math.Max(currentRange.End, range.End);
+                    // Объединяем диапазоны, обновляя конец до максимального значения.
+                    ranges[mergedIndex] = new Range(currentRange.Start, Math.Max(currentRange.End, nextRange.End));
                 }
                 else
                 {
-                    mergedRanges.Add(currentRange);
-                    currentRange = range;
+                    // Нет перекрытия; переходим к следующему диапазону.
+                    mergedIndex++;
+                    ranges[mergedIndex] = nextRange;
                 }
             }
 
-            mergedRanges.Add(currentRange);
-            return mergedRanges;
+            // Обрезаем список, чтобы включить только объединенные диапазоны.
+            ranges.RemoveRange(mergedIndex + 1, ranges.Count - mergedIndex - 1);
+
+            return ranges;
         }
 
-        // Метод SubtractRange удаляет один диапазон из списка диапазонов.
-        private List<Range> SubtractRange(List<Range> ranges, Range exclude)
+
+        // Метод удаляет один диапазон из списка диапазонов.
+        public List<Range> SubtractRanges(List<Range> ranges, Range exclude)
         {
-            if (ranges.Count == 0) return new List<Range>();
-
-            var result = new List<Range>();
-
-            // Добавляем в результат те части диапазонов, которые не перекрываются с исключаемым диапазоном.
-            foreach (var range in ranges)
+            for (int i = 0; i < ranges.Count; i++)
             {
-                if (exclude.End < range.Start || exclude.Start > range.End)
+                var range = ranges[i];
+
+                if (range.End < exclude.Start || range.Start > exclude.End)
                 {
-                    result.Add(range);
+                    // Диапазон не пересекается с исключаемым, ничего не делаем.
+                    continue;
+                }
+
+                // Обрабатываем пересечение.
+                if (range.Start < exclude.Start)
+                {
+                    // Изменяем текущий диапазон на левую часть.
+                    ranges[i] = new Range(range.Start, exclude.Start - 1);
                 }
                 else
                 {
-                    // Если есть часть слева от исключаемого диапазона, добавляем ее в результат.
-                    if (exclude.Start > range.Start)
-                        result.Add(new Range(range.Start, exclude.Start - 1));
+                    // Удаляем диапазон, так как он перекрыт слева.
+                    ranges.RemoveAt(i);
+                    continue;
+                }
 
-                    // Если есть часть справа от исключаемого диапазона, добавляем ее в результат.
-                    if (exclude.End < range.End)
-                        result.Add(new Range(exclude.End + 1, range.End));
+                if (range.End > exclude.End)
+                {
+                    // Добавляем правую часть диапазона.
+                    ranges.Add(new Range(exclude.End + 1, range.End));
                 }
             }
-
-            return result;
+            return ranges;
         }
     }
 }
+
+
 

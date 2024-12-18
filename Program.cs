@@ -7,15 +7,21 @@ namespace HostsParser
     {
         static void Main(string[] args)
         {
-            // путь к папке с файлами
-            string folderPath = @".\Output\";
-    
-            Console.WriteLine("Нажмите Enter для начала работы...");
-            Console.ReadLine();
+            try
+            {
+                // путь к папке с файлами
+                string folderPath = @".\Output\";
 
-            new RangeAggregator().Run(folderPath);
+                Console.Write("Нажмите Enter для начала работы...");
+                Console.ReadLine();
+         
+                new RangeAggregator().Run(folderPath);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Ошибка: " + ex.Message);
+            }
 
-            Console.WriteLine("Все файлы были обработаны!");
 
             Console.ReadKey();
         }

@@ -33,6 +33,7 @@
     <DefineConstants>TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
+    <Prefer32Bit>false</Prefer32Bit>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="System" />
@@ -49,12 +50,14 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="FileParser.cs" />
-    <Compile Include="HostComparer.cs" />
+    <Compile Include="Models\DataStatistics.cs" />
+    <Compile Include="Models\Host.cs" />
+    <Compile Include="Models\ParsedLine.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="RangeAggregator.cs" />
     <Compile Include="RangeMerger.cs" />
-    <Compile Include="RangeStruct.cs" />
+    <Compile Include="Models\RangeStruct.cs" />
     <Compile Include="ResultGenerator.cs" />
   </ItemGroup>
   <ItemGroup>

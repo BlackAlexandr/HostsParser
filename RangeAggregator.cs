@@ -35,10 +35,13 @@ namespace HostsParser
                 // Генерируем отчетный файл.
                 var resultGenerator = new ResultGenerator();               
                 resultGenerator.GenerateResult(results, "output.txt");
+
+                Console.WriteLine("Все файлы были обработаны!");
+                GC.Collect();
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Ошибка работы утилиты в директории: {directory}. Подробности: {ex.Message}");
+                throw new Exception(ex.Message);
             }
         }
     }
