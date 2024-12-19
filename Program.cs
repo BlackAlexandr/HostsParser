@@ -14,14 +14,13 @@ namespace HostsParser
 
                 Console.Write("Нажмите Enter для начала работы...");
                 Console.ReadLine();
-         
+
                 new RangeAggregator().Run(folderPath);
             }
             catch (Exception ex)
             {
                 Console.WriteLine("Ошибка: " + ex.Message);
             }
-
 
             Console.ReadKey();
         }

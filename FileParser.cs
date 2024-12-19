@@ -50,9 +50,9 @@ namespace HostsParser
                         {
                             includesByHost.AddOrUpdate(host, new List<Range>(), (key, existingList) =>
                             {
-                              //  var newList = new List<Range>(existingList);
-                                existingList.AddRange(includesByHostFile[host]);
-                                return existingList;
+                                var includeList = new List<Range>(existingList);
+                                includeList.AddRange(includesByHostFile[host]);
+                                return includeList;
                             });
                         }
                     }
@@ -67,9 +67,9 @@ namespace HostsParser
                         {
                             excludesByHost.AddOrUpdate(host, new List<Range>(), (key, existingList) =>
                             {
-                                //var newList = new List<Range>(existingList);
-                                existingList.AddRange(excludesByHostFile[host]);
-                                return existingList;
+                                var excludeList = new List<Range>(existingList);
+                                excludeList.AddRange(excludesByHostFile[host]);
+                                return excludeList;
                             });
                         }
                     }

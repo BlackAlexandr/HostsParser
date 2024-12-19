@@ -23,13 +23,15 @@ namespace HostsParser
 
                 // Убираем исключенные диапазоны из результата.      
                 if (excludesByHost.TryGetValue(host, out var excludes))
-                {
+                { 
                     foreach (var exclude in MergeRanges(excludes))
                     {
                         resultIntervals = SubtractRanges(resultIntervals, exclude);
                     }
                 }
 
+                // Отсортировываем диапазоны по началу.
+                resultIntervals.Sort((a, b) => a.Start.CompareTo(b.Start));
                 // Записываем результат.
                 results[host] = $"{host}: {string.Join(", ", resultIntervals.Select(i => $"[{i.Start},{i.End}]"))}";
             });
@@ -71,41 +73,69 @@ namespace HostsParser
             return ranges;
         }
 
-
-        // Метод удаляет один диапазон из списка диапазонов.
         public List<Range> SubtractRanges(List<Range> ranges, Range exclude)
         {
-            for (int i = 0; i < ranges.Count; i++)
+            for (int i = ranges.Count - 1; i >= 0; i--)
             {
                 var range = ranges[i];
 
                 if (range.End < exclude.Start || range.Start > exclude.End)
                 {
-                    // Диапазон не пересекается с исключаемым, ничего не делаем.
+                    // Диапазон не пересекается с исключаемым, ничего не делаем
                     continue;
                 }
 
-                // Обрабатываем пересечение.
+                // Обрабатываем пересечение
                 if (range.Start < exclude.Start)
                 {
-                    // Изменяем текущий диапазон на левую часть.
+                    // Изменяем текущий диапазон на левую часть
                     ranges[i] = new Range(range.Start, exclude.Start - 1);
                 }
                 else
                 {
-                    // Удаляем диапазон, так как он перекрыт слева.
+                    // Удаляем диапазон, так как он перекрыт слева
                     ranges.RemoveAt(i);
                     continue;
                 }
 
                 if (range.End > exclude.End)
                 {
-                    // Добавляем правую часть диапазона.
+                    // Добавляем правую часть диапазона
                     ranges.Add(new Range(exclude.End + 1, range.End));
                 }
             }
+
             return ranges;
         }
+
+        //public List<Range> SubtractRanges(List<Range> ranges, Range exclude)
+        //{
+        //    var result = new List<Range>();
+
+        //    foreach (var range in ranges)
+        //    {
+        //        if (range.End < exclude.Start || range.Start > exclude.End)
+        //        {
+        //            // Диапазон не пересекается с исключаемым
+        //            result.Add(range);
+        //        }
+        //        else
+        //        {
+        //            // Обрабатываем пересечение
+        //            if (range.Start < exclude.Start)
+        //            {
+        //                result.Add(new Range(range.Start, exclude.Start - 1)); // Левый диапазон
+        //            }
+        //            if (range.End > exclude.End)
+        //            {
+        //                result.Add(new Range(exclude.End + 1, range.End)); // Правый диапазон
+        //            }
+        //            // Если диапазон полностью перекрыт исключаемым диапазоном, ничего не добавляем
+        //        }
+        //    }
+
+        //    return result;
+        //}
     }
 }
 
