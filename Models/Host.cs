@@ -1,8 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace HostsParser.Models
 {
@@ -37,6 +33,16 @@ namespace HostsParser.Models
                 }
             }
             return result;
+        }
+
+        public override bool Equals(object obj)
+        {
+            return obj is Host host && Name.Equals(host.Name, StringComparison.OrdinalIgnoreCase);
+        }
+
+        public override int GetHashCode()
+        {
+            return Name.GetHashCode();
         }
     }
 }

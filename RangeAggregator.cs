@@ -1,4 +1,5 @@
-﻿using System;
+﻿using HostsParser.Models;
+using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
@@ -15,8 +16,8 @@ namespace HostsParser
             try
             {
                 // Создаем два ConcurrentDictionary для хранения включенных и исключенных диапазонов по хостам.
-                var includesByHost = new ConcurrentDictionary<string, List<Range>>();
-                var excludesByHost = new ConcurrentDictionary<string, List<Range>>();
+                var includesByHost = new ConcurrentDictionary<Host, List<Range>>();
+                var excludesByHost = new ConcurrentDictionary<Host, List<Range>>();
 
                 // Получаем список файлов в директории.
                 var files = Directory.GetFiles(directory);
@@ -33,7 +34,7 @@ namespace HostsParser
                 var results = rangeMerger.ProcessHosts(includesByHost, excludesByHost);
 
                 // Генерируем отчетный файл.
-                var resultGenerator = new ResultGenerator();               
+                var resultGenerator = new ResultGenerator();
                 resultGenerator.GenerateResult(results, "output.txt");
 
                 Console.WriteLine("Все файлы были обработаны!");

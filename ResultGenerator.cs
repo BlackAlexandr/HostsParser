@@ -9,19 +9,14 @@ namespace HostsParser
     // Класс ResultGenerator отвечает за генерацию файла вывода объединения диапазонов.
     public class ResultGenerator
     {
-        public void GenerateResult(ConcurrentDictionary<string, string> results, string outputFile)
+        public void GenerateResult(ConcurrentDictionary<Host, string> results, string outputFile)
         {
             try
             {
                 using (var writer = new StreamWriter(outputFile))
                 {
-                    foreach (var result in results.Select(h => new
+                    foreach (var result in results.OrderBy(h => h.Key.GetNumericPart(h.Key.Name)))
                     {
-                        Host = new Host(h.Key), // Создаем экземпляр Host
-                        Value = h.Value,
-                        NumericPart = new Host().GetNumericPart(h.Key) // Получаем числовую часть
-                    }).OrderBy(h => h.NumericPart))
-                        {
                         writer.WriteLine(result.Value);
                     }
                 }
@@ -37,3 +32,4 @@ namespace HostsParser
         }
     }
 }
+

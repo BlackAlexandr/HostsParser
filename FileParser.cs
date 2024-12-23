@@ -26,53 +26,19 @@ namespace HostsParser
         /// <param name="files">Массив файлов для обработки</param>
         /// <param name="includesByHost">Словарь для хранения включаемых диапазонов по хостам</param>
         /// <param name="excludesByHost">Словарь для хранения исключаемых диапазонов по хостам</param>
-        public void ParseFiles(string[] files, ConcurrentDictionary<string, List<Range>> includesByHost, ConcurrentDictionary<string, List<Range>> excludesByHost)
+        public void ParseFiles(string[] files, ConcurrentDictionary<Host, List<Range>> includesByHost, ConcurrentDictionary<Host, List<Range>> excludesByHost)
         {
-
             try
             {
                 Parallel.ForEach(files, new ParallelOptions { MaxDegreeOfParallelism = 16 }, file =>
                 {
+                    DataStatistics dataStatistic = new DataStatistics();
+
                     var startTime = DateTime.Now;
                     Console.WriteLine($"Начинается обработка файла: {file} в {startTime:T}");
 
                     // Обработка файла и извлечение из него диапазонов.
-                    var (dataStatistic, includesByHostFile, excludesByHostFile) = ProcessFile(file);
-
-                    // Объединение результатов из каждого файла.
-                    foreach (var host in includesByHostFile.Keys)
-                    {
-                        if (!includesByHost.ContainsKey(host))
-                        {
-                            includesByHost.TryAdd(host, includesByHostFile[host]);
-                        }
-                        else
-                        {
-                            includesByHost.AddOrUpdate(host, new List<Range>(), (key, existingList) =>
-                            {
-                                var includeList = new List<Range>(existingList);
-                                includeList.AddRange(includesByHostFile[host]);
-                                return includeList;
-                            });
-                        }
-                    }
-
-                    foreach (var host in excludesByHostFile.Keys)
-                    {
-                        if (!excludesByHost.ContainsKey(host))
-                        {
-                            excludesByHost.TryAdd(host, excludesByHostFile[host]);
-                        }
-                        else
-                        {
-                            excludesByHost.AddOrUpdate(host, new List<Range>(), (key, existingList) =>
-                            {
-                                var excludeList = new List<Range>(existingList);
-                                excludeList.AddRange(excludesByHostFile[host]);
-                                return excludeList;
-                            });
-                        }
-                    }
+                    ProcessFile(file, includesByHost, excludesByHost, dataStatistic);
 
                     var endTime = DateTime.Now;
                     Console.WriteLine($"Завершена обработка файла: {file} в {endTime:T}. Время обработки: {(endTime - startTime).TotalSeconds:F2} секунд");
@@ -93,34 +59,24 @@ namespace HostsParser
         /// Метод для обработки отдельного файла и извлечения из него диапазонов.
         /// </summary>
         /// <param name="file">Обрабатываемый файл</param>
-        /// <returns>Кортеж с количеством агрегированных диапазонов, количеством пропущенных строк, словарями включаемых и исключаемых диапазонов по хостам</returns>
-        private (DataStatistics dataStatistics, ConcurrentDictionary<string, List<Range>> includesByHost,
-            ConcurrentDictionary<string, List<Range>> excludesByHost) ProcessFile(string file)
+        /// <param name="includesByHost">Словарь для хранения включаемых диапазонов по хостам</param>
+        /// <param name="excludesByHost">Словарь для хранения исключаемых диапазонов по хостам</param>
+        /// <param name="dataStatistics">Собираем статистику</param>
+        private void ProcessFile(string file, ConcurrentDictionary<Host, List<Range>> includesByHost,
+      ConcurrentDictionary<Host, List<Range>> excludesByHost, DataStatistics dataStatistics)
         {
-            DataStatistics _dataStatistics = new DataStatistics();
-            var includesByHost = new ConcurrentDictionary<string, List<Range>>();
-            var excludesByHost = new ConcurrentDictionary<string, List<Range>>();
-
             try
             {
+                const int BufferSize = 1024;
                 // Чтение файла и обработка строк.
-                using (var reader = new StreamReader(file, Encoding.UTF8, false, 4096))
+                using (var reader = new StreamReader(file, Encoding.UTF8, true, BufferSize))
                 {
                     string line;
                     while ((line = reader.ReadLine()) != null)
                     {
                         try
                         {
-                            // Попытка извлечь диапазон и тип из строки.
-                            if (TryParseLine(line, out ParsedLine parsedLine))
-                            {
-                                ++_dataStatistics.AggregatedRanges;
-                                AddRangeToDictionary(includesByHost, excludesByHost, parsedLine);
-                            }
-                            else
-                            {
-                                ++_dataStatistics.SkippedLines;
-                            }
+                            ProcessLine(line, dataStatistics, includesByHost, excludesByHost);
                         }
                         catch (Exception ex)
                         {
@@ -137,8 +93,37 @@ namespace HostsParser
             {
                 throw new Exception($"Ошибка обработки файла: {file}. Подробности: {ex.Message}");
             }
+        }
 
-            return (_dataStatistics, includesByHost, excludesByHost);
+        /// <summary>
+        /// Обрабатываем строку из файла
+        /// </summary>
+        /// <param name="line">Строка из файла</param>
+        /// <param name="dataStatistics">Собираем статистику</param>
+        /// <param name="includesByHost">Словарь для хранения включаемых диапазонов по хостам</param>
+        /// <param name="excludesByHost">Словарь для хранения исключаемых диапазонов по хостам</param>
+        /// <exception cref="Exception"></exception>
+        private void ProcessLine(string line, DataStatistics dataStatistics,
+            ConcurrentDictionary<Host, List<Range>> includesByHost,
+            ConcurrentDictionary<Host, List<Range>> excludesByHost)
+        {
+            try
+            {
+                // Попытка извлечь диапазон и тип из строки.
+                if (TryParseLine(line, out ParsedLine parsedLine))
+                {
+                    ++dataStatistics.AggregatedRanges;
+                    AddRangeToDictionary(includesByHost, excludesByHost, parsedLine);
+                }
+                else
+                {
+                    ++dataStatistics.SkippedLines;
+                }
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"Ошибка обработки строки: {line}", ex);
+            }
         }
 
         /// <summary>
@@ -173,36 +158,45 @@ namespace HostsParser
         }
 
         /// <summary>
-        /// Метод для добавления извлеченного диапазона в соответствующий словарь (включаемых или исключаемых диапазонов по хостам).
+        /// Добавление диапазона в коллекцию в зависимости от типа
         /// </summary>
         /// <param name="includesByHost">Словарь для хранения включаемых диапазонов по хостам</param>
         /// <param name="excludesByHost">Словарь для хранения исключаемых диапазонов по хостам</param>
-        /// <param name="range">Извлеченный диапазон</param>
-        /// <param name="type">Извлеченный тип (include или exclude).</param>
-        /// <param name="parsedLine">Обрабатываемая строка</param>
-        private void AddRangeToDictionary(ConcurrentDictionary<string, List<Range>> includesByHost, ConcurrentDictionary<string, List<Range>> excludesByHost, ParsedLine parsedLine)
+        /// <param name="parsedLine">Распарсенная строка</param>
+        private void AddRangeToDictionary(ConcurrentDictionary<Host, List<Range>> includesByHost, 
+            ConcurrentDictionary<Host, List<Range>> excludesByHost, ParsedLine parsedLine)
         {
             if (parsedLine.Type.Equals("include", StringComparison.OrdinalIgnoreCase))
             {
-                foreach (var host in parsedLine.Hosts)
-                {
-                    includesByHost.AddOrUpdate(host.Name, new List<Range> { parsedLine.Range }, (key, existingList) =>
-                    {
-                        existingList.Add(parsedLine.Range);
-                        return existingList;
-                    });
-                }
+                AddOrUpdateDict(includesByHost, parsedLine);
             }
             else if (parsedLine.Type.Equals("exclude", StringComparison.OrdinalIgnoreCase))
             {
-                foreach (var host in parsedLine.Hosts)
+                AddOrUpdateDict(excludesByHost, parsedLine);
+            }
+        }
+
+        /// <summary>
+        /// Добавление диапазона в коллекцию
+        /// </summary>
+        /// <param name="includesOrExcludesByHost">Словарь для хранения включаемых или исключаемых диапазонов</param>
+        /// <param name="parsedLine">Распарсенная строка</param>
+        private void AddOrUpdateDict(ConcurrentDictionary<Host, List<Range>> includesOrExcludesByHost, ParsedLine parsedLine)
+        {
+            foreach (var host in parsedLine.Hosts)
+            {
+                includesOrExcludesByHost.AddOrUpdate(host, new List<Range> { parsedLine.Range }, (key, existingList) =>
                 {
-                    excludesByHost.AddOrUpdate(host.Name, new List<Range> { parsedLine.Range }, (key, existingList) =>
+                    // т.к. List<Range> не потокобезопасная коллекция, происходит гонка потоков
+                    // и в список попадают null данные (если несколько потоков в один список пытаются занести данные),
+                    // это приводит к непредвиденной работы программы
+                    // по этой причине добавляю блокирование потока 
+                    lock (existingList) 
                     {
                         existingList.Add(parsedLine.Range);
                         return existingList;
-                    });
-                }
+                    }
+                });
             }
         }
 
