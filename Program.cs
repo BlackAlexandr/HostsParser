@@ -10,15 +10,11 @@ namespace HostsParser
             try
             {
                 // путь к папке с файлами
-                string folderPath = @"C:\Users\aleks\OneDrive\Desktop\example-generator\Output\";
-                var start = new Stopwatch();
+                string folderPath = @".\Output\";
 
                 Console.Write("Нажмите Enter для начала работы...");
-                Console.ReadLine();
-                start.Start();
+                Console.ReadLine();\
                 new RangeAggregator().Run(folderPath);
-                start.Stop();
-                Console.WriteLine($"Время выполнения: {start.Elapsed}");
             }
             catch (Exception ex)
             {
