@@ -13,7 +13,7 @@ namespace HostsParser
                 string folderPath = @".\Output\";
 
                 Console.Write("Нажмите Enter для начала работы...");
-                Console.ReadLine();\
+                Console.ReadLine();
                 new RangeAggregator().Run(folderPath);
             }
             catch (Exception ex)
